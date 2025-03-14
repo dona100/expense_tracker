@@ -1,0 +1,86 @@
+{% extends 'expenses/base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h2>Your Expenses</h2>
+
+<!-- Filter & Search Form -->
+<form method="get" class="row g-3 mb-4">
+    <div class="col-md-3">
+        <input type="text" name="q" class="form-control" placeholder="Search by title" value="{{ request.GET.q }}">
+    </div>
+    <div class="col-md-3">
+        <select name="category" class="form-control">
+            <option value="">All Categories</option>
+            {% for choice in category_choices %}
+                <option value="{{ choice.0 }}" {% if request.GET.category == choice.0 %}selected{% endif %}>{{ choice.1 }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3">
+        <input type="text" name="date_range" class="form-control" placeholder="YYYY-MM-DD - YYYY-MM-DD" value="{{ request.GET.date_range }}">
+    </div>
+    <div class="col-md-3">
+        <button type="submit" class="btn btn-success">Filter</button>
+        <a href="{% url 'dashboard' %}" class="btn btn-secondary">Reset</a>
+    </div>
+</form>
+
+<!-- Expense Table -->
+<table class="table table-bordered">
+    <thead class="table-dark">
+        <tr>
+            <th>Title</th>
+            <th>Amount</th>
+            <th>Category</th>
+            <th>Date</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for expense in page_obj %}
+        <tr>
+            <td>{{ expense.title }}</td>
+            <td>₹{{ expense.amount }}</td>
+            <td>{{ expense.category }}</td>
+            <td>{{ expense.date }}</td>
+            <td>
+                <a href="{% url 'edit_expense' expense.pk %}" class="btn btn-sm btn-warning">Edit</a>
+                <a href="{% url 'delete_expense' expense.pk %}" class="btn btn-sm btn-danger">Delete</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5" class="text-center">No expenses found</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Pagination -->
+<nav>
+    <ul class="pagination">
+        {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page=1">First</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
+        {% endif %}
+        
+        <li class="page-item active"><span class="page-link">{{ page_obj.number }}</span></li>
+
+        {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a></li>
+        {% endif %}
+    </ul>
+</nav>
+
+<!-- Pie Chart -->
+<h3>Expense Breakdown</h3>
+{% if chart %}
+    <img src="data:image/png;base64,{{ chart }}" class="img-fluid" alt="Expense Chart">
+{% else %}
+    <p>No data available for visualization.</p>
+{% endif %}
+
+{% endblock %}

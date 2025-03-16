@@ -8,9 +8,6 @@
 <!-- Filter & Search Form -->
 <form method="get" class="row g-3 mb-4">
     <div class="col-md-3">
-        <input type="text" name="q" class="form-control" placeholder="Search by title" value="{{ request.GET.q }}">
-    </div>
-    <div class="col-md-3">
         <select name="category" class="form-control">
             <option value="">All Categories</option>
             {% for choice in category_choices %}
@@ -18,9 +15,18 @@
             {% endfor %}
         </select>
     </div>
+
+    
     <div class="col-md-3">
-        <input type="text" name="date_range" class="form-control" placeholder="YYYY-MM-DD - YYYY-MM-DD" value="{{ request.GET.date_range }}">
+        <input type="text" name="date_range" id="date_range" class="form-control" placeholder="YYYY-MM-DD - YYYY-MM-DD" value="{{ request.GET.date_range }}">
     </div>
+    
+
+    
+    <div class="col-md-3">
+        <input type="text" name="q" class="form-control" placeholder="Search title" value="{{ request.GET.q }}">
+    </div>
+    
     <div class="col-md-3">
         <button type="submit" class="btn btn-success">Filter</button>
         <a href="{% url 'dashboard' %}" class="btn btn-secondary">Reset</a>
@@ -58,22 +64,57 @@
     </tbody>
 </table>
 
-<!-- Pagination -->
-<nav>
-    <ul class="pagination">
-        {% if page_obj.has_previous %}
-            <li class="page-item"><a class="page-link" href="?page=1">First</a></li>
-            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
-        {% endif %}
-        
-        <li class="page-item active"><span class="page-link">{{ page_obj.number }}</span></li>
 
-        {% if page_obj.has_next %}
-            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
-            <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a></li>
-        {% endif %}
-    </ul>
-</nav>
+
+<!-- Pagination -->
+
+    <nav>
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page=1">First</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
+            {% endif %}
+            
+            <li class="page-item active"><span class="page-link">{{ page_obj.number }}</span></li>
+    
+            {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+
+    <div>
+        <a href="{% url 'export_csv' %}" class="btn btn-success mb-3">Export as CSV</a>
+    </div>
+    
+    <h3>Categorized Expense Summary</h3>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th>Total Spent (₹)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in categorized_summary %}
+            <tr>
+                <td>{{ item.category }}</td>
+                <td>₹{{ item.total }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="2">No expenses recorded.</td>
+            </tr>
+            {% endfor %}
+            <tr>
+                <th>Total Expenses</th>
+                <th>₹{{ total_expenses }}</th>
+            </tr>
+        </tbody>
+    </table>
+
+    
 
 <!-- Pie Chart -->
 <h3>Expense Breakdown</h3>
@@ -83,4 +124,7 @@
     <p>No data available for visualization.</p>
 {% endif %}
 
+
 {% endblock %}
+
+

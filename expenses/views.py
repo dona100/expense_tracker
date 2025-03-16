@@ -1,10 +1,12 @@
-from django.db import models  
+from django.db.models import Sum
+from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from .models import Expense
-from .forms import ExpenseForm, RegisterForm
+from django.contrib import messages
+from .models import Expense, CATEGORY_CHOICES
+from .forms import ExpenseForm,RegisterForm
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
@@ -23,11 +25,13 @@ def register(request):
     return render(request, 'expenses/register.html', {'form': form})
 
 
-
 @login_required(login_url='/login/')
 def dashboard(request):
     expenses = Expense.objects.filter(user=request.user).order_by('-date')
+
     
+    category_choices = CATEGORY_CHOICES  
+
     # Filtering & Search
     category = request.GET.get('category', '')
     date_range = request.GET.get('date_range', '')
@@ -35,26 +39,41 @@ def dashboard(request):
 
     if category:
         expenses = expenses.filter(category=category)
+
     if date_range:
-        expenses = expenses.filter(date__range=date_range.split(" - "))
+        try:
+            start_date, end_date = date_range.split(" to ")
+            expenses = expenses.filter(date__range=[start_date, end_date])
+        except ValueError:
+            messages.error(request, "Invalid date range format. Use YYYY-MM-DD - YYYY-MM-DD")
+
+
     if query:
         expenses = expenses.filter(title__icontains=query)
-    
-    # Pagination
+
+    # Pagination 
     paginator = Paginator(expenses, 5)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # Monthly Summary
-    monthly_expenses = expenses.values('category').order_by().annotate(total=models.Sum('amount'))
+    #  Expense Summary 
+    categorized_summary = (
+        expenses.values("category")
+        .annotate(total=Sum("amount"))
+        .order_by("-total")
+    )
 
-    # Pie Chart
-    categories = [x['category'] for x in monthly_expenses]
-    amounts = [x['total'] for x in monthly_expenses]
+    
+    categories = [item["category"] for item in categorized_summary]
+    amounts = [item["total"] for item in categorized_summary]
 
-    plt.figure(figsize=(5,5))
-    plt.pie(amounts, labels=categories, autopct='%1.1f%%')
-    plt.title('Expense Breakdown')
+    #  Pie Chart
+    plt.figure(figsize=(5, 5))
+    if amounts:
+        plt.pie(amounts, labels=categories, autopct='%1.1f%%')
+        plt.title("Expense Breakdown")
+    else:
+        plt.text(0.5, 0.5, "No Data", horizontalalignment="center", verticalalignment="center")
 
     buffer = io.BytesIO()
     plt.savefig(buffer, format="png")
@@ -62,11 +81,15 @@ def dashboard(request):
     image_data = base64.b64encode(buffer.read()).decode("utf-8")
     buffer.close()
 
-    return render(request, 'expenses/dashboard.html', {
-        'page_obj': page_obj,
-        'total_expenses': sum(amounts),
-        'chart': image_data
+    return render(request, "expenses/dashboard.html", {
+        "page_obj": page_obj,
+        "category_choices": category_choices,  
+        "total_expenses": sum(amounts),
+        "chart": image_data,
+        "categorized_summary": categorized_summary,
     })
+
+
 
 @login_required(login_url='/login/')
 def add_expense(request):
@@ -96,12 +119,23 @@ def edit_expense(request, pk):
 @login_required(login_url='/login/')
 def delete_expense(request, pk):
     expense = get_object_or_404(Expense, pk=pk, user=request.user)
-    expense.delete()
-    return redirect('dashboard')
+
+    if request.method == "POST":
+        expense.delete()
+        return redirect('dashboard')  
+
+    return render(request, 'expenses/delete_expense.html', {'expense': expense})
 
 @login_required(login_url='/login/')
 def export_csv(request):
     expenses = Expense.objects.filter(user=request.user)
     df = pd.DataFrame(expenses.values())
-    response = df.to_csv(index=False)
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="expenses.csv"'
+    
+    df.to_csv(path_or_buf=response, index=False)
+    
     return response
+
+
